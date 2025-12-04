@@ -1,0 +1,359 @@
+openapi: 3.0.0
+info:
+  title: Subscription Service API
+  description: REST API for managing user subscriptions with cost calculation
+  version: 1.0.0
+  contact:
+    name: Subscription Service
+    email: support@subscriptions.com
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+
+paths:
+  /subscriptions:
+    get:
+      summary: Get all subscriptions
+      description: Retrieve all subscription records
+      operationId: getSubscriptions
+      responses:
+        '200':
+          description: A list of subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Subscription'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Create a new subscription
+      description: Create a new subscription record
+      operationId: createSubscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+      responses:
+        '201':
+          description: Subscription created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /subscriptions/{id}:
+    get:
+      summary: Get a subscription by ID
+      description: Retrieve a specific subscription by its ID
+      operationId: getSubscriptionById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the subscription
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Subscription found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Invalid ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      summary: Update a subscription
+      description: Update an existing subscription
+      operationId: updateSubscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the subscription
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+      responses:
+        '200':
+          description: Subscription updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Delete a subscription
+      description: Delete a subscription by ID
+      operationId: deleteSubscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the subscription
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Subscription deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Subscription deleted successfully"
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Invalid ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /subscriptions/cost:
+    get:
+      summary: Calculate total subscription cost
+      description: Calculate the total cost of subscriptions with optional filters by user ID, service name, and period
+      operationId: calculateTotalCost
+      parameters:
+        - name: user_id
+          in: query
+          required: false
+          description: Filter by user ID (UUID format)
+          schema:
+            type: string
+            format: uuid
+            example: "60601fee-2bf1-4721-ae6f-7636e79a0cba"
+        - name: service_name
+          in: query
+          required: false
+          description: Filter by service name
+          schema:
+            type: string
+            example: "Yandex Plus"
+        - name: period
+          in: query
+          required: false
+          description: Filter by period (MM-YYYY format)
+          schema:
+            type: string
+            pattern: '^(0[1-9]|1[0-2])-\d{4}$'
+            example: "07-2025"
+      responses:
+        '200':
+          description: Total cost calculated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryCostResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      summary: Health check
+      description: Check if the service is running
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+components:
+  schemas:
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique subscription ID
+          example: 1
+        service_name:
+          type: string
+          description: Name of the subscription service
+          example: "Yandex Plus"
+        price:
+          type: integer
+          description: Monthly subscription price in rubles
+          example: 400
+        user_id:
+          type: string
+          format: uuid
+          description: User ID in UUID format
+          example: "60601fee-2bf1-4721-ae6f-7636e79a0cba"
+        start_date:
+          type: string
+          pattern: '^(0[1-9]|1[0-2])-\d{4}$'
+          description: Subscription start date in MM-YYYY format
+          example: "07-2025"
+        end_date:
+          type: string
+          pattern: '^(0[1-9]|1[0-2])-\d{4}$'
+          description: Optional subscription end date in MM-YYYY format
+          example: "12-2025"
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the record was created
+          example: "2023-07-15T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the record was last updated
+          example: "2023-07-15T10:30:00Z"
+      required:
+        - id
+        - service_name
+        - price
+        - user_id
+        - start_date
+
+    CreateSubscriptionRequest:
+      type: object
+      properties:
+        service_name:
+          type: string
+          description: Name of the subscription service
+          example: "Yandex Plus"
+        price:
+          type: integer
+          description: Monthly subscription price in rubles (must be positive)
+          minimum: 1
+          example: 400
+        user_id:
+          type: string
+          format: uuid
+          description: User ID in UUID format
+          example: "60601fee-2bf1-4721-ae6f-7636e79a0cba"
+        start_date:
+          type: string
+          pattern: '^(0[1-9]|1[0-2])-\d{4}$'
+          description: Subscription start date in MM-YYYY format
+          example: "07-2025"
+        end_date:
+          type: string
+          pattern: '^(0[1-9]|1[0-2])-\d{4}$'
+          description: Optional subscription end date in MM-YYYY format
+          example: "12-2025"
+          nullable: true
+      required:
+        - service_name
+        - price
+        - user_id
+        - start_date
+
+    SummaryCostResponse:
+      type: object
+      properties:
+        total_cost:
+          type: integer
+          description: Total cost in rubles
+          example: 1200
+        period:
+          type: string
+          description: Period for which the cost was calculated
+          example: "07-2025"
+        user_id:
+          type: string
+          format: uuid
+          description: User ID filter applied (if any)
+          example: "60601fee-2bf1-4721-ae6f-7636e79a0cba"
+          nullable: true
+        service_name:
+          type: string
+          description: Service name filter applied (if any)
+          example: "Yandex Plus"
+          nullable: true
+        subscriptions:
+          type: array
+          description: List of subscriptions included in the calculation
+          items:
+            $ref: '#/components/schemas/Subscription'
+      required:
+        - total_cost
+        - period
+        - subscriptions
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Validation failed"
+      required:
+        - error
+
+tags:
+  - name: subscriptions
+    description: Subscription management operations
+  - name: cost
+    description: Cost calculation operations
+  - name: health
+    description: Health check operations
