@@ -13,7 +13,6 @@ import (
     "subscription-service/internal/api/handlers"
     "subscription-service/internal/service"
     "subscription-service/internal/model"
-    "subscription-service/internal/logger"
 )
 
 // Mock repository for testing
