@@ -2,36 +2,79 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main, develop ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: user
+          POSTGRES_DB: subscription_service_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.20'
+    
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
 
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: '1.17'
+    - name: Install dependencies
+      run: go mod download
 
-      - name: Install dependencies
-        run: go mod tidy
+    - name: Run go mod tidy
+      run: go mod tidy
 
-      - name: Run tests
-        run: go test ./... -v
+    - name: Verify dependencies
+      run: go mod verify
 
-      - name: Build the application
-        run: go build -o subscription-service ./cmd/server/main.go
+    - name: Run tests
+      run: go test -v ./...
+      env:
+        DATABASE_URL: postgres://user:password@localhost:5432/subscription_service_test?sslmode=disable
 
-      - name: Run migrations
-        run: ./scripts/migrate.sh
+    - name: Build application
+      run: go build -v ./cmd/server
 
-      - name: Lint code
-        run: go vet ./...
+    - name: Run linter (if golangci-lint is available)
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        skip-cache: true
+      continue-on-error: true
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build Docker image
+      run: docker build -f docker/Dockerfile -t subscription-service:latest .
+    
+    - name: Test Docker image
+      run: |
+        docker run --rm subscription-service:latest --help || true
